@@ -11,7 +11,7 @@ interface GithubAPI {
     @GET("search/users")
     fun getGithubUsers(
         @Query("q", encoded = true) keyword: String,
-        @Query("page") page: Int,
-        @Query("per_page") perPage: Int
+        @Query("page") page: Int?,
+        @Query("per_page") perPage: Int?
     ): Call<Response<UserResponse>>
 }
