@@ -1,16 +1,20 @@
 package com.sample.ui
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sample.data.api.GithubAPI
-import com.sample.extension.asFlow
+import com.sample.data.response.UserResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.*
 import javax.inject.Inject
+
+sealed class MainUiState {
+    data class Success(val list: List<UserListModel>) : MainUiState()
+    data class Failure(val message: String?) : MainUiState()
+}
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -25,56 +29,70 @@ class MainViewModel @Inject constructor(
 
     private var currentPage: Int? = START_PAGE
 
-    private val _userListModels: MutableLiveData<List<UserListModel>> = MutableLiveData()
-    val userListModels: LiveData<List<UserListModel>> get() = _userListModels
+    private val userListModels = mutableListOf<UserListModel>()
 
-    private val _onFailure: MutableLiveData<String> = MutableLiveData()
-    val onFailure: LiveData<String> get() = _onFailure
+    private val _state: MutableStateFlow<MainUiState> =
+        MutableStateFlow(MainUiState.Success(emptyList()))
+    val state: StateFlow<MainUiState> get() = _state
 
     init {
-        load()
+        fetch()
     }
 
-    fun load() {
-        if (userListModels.value?.lastOrNull() == UserListModel.Loading ||
-            currentPage == null) return
+    fun fetch() {
+        if (userListModels.lastOrNull() == UserListModel.Loading || currentPage == null) return
 
-        setLoading(true)
+        getUsers(NAME, currentPage, PER_PAGE)
+            .transform { result ->
+                when (result) {
+                    is Result.Loading -> {
+                        UserListModel.Loading
+                            .let(userListModels::add)
 
-        api.getGithubUsers(NAME, currentPage, PER_PAGE)
-            .asFlow()
-            .distinctUntilChanged()
-            .onEach { result ->
-                setLoading(false)
+                        emit(MainUiState.Success(userListModels.toList()))
+                    }
+                    is Result.Success -> {
+                        UserListModel.Loading
+                            .let(userListModels::remove)
 
-                result.onSuccess { response ->
-                    val list = _userListModels.value
-                        ?.toMutableList()
-                        ?.apply {
-                            response.items
-                                .map { UserListModel.User(it.name, it.profileImageUrl) }
-                                .let(this::addAll)
-                        }
-                    _userListModels.value = list
-                    currentPage = currentPage?.inc()
+                        result.value
+                            .map { UserListModel.User(it.name, it.profileImageUrl) }
+                            .let(userListModels::addAll)
+
+                        currentPage = currentPage?.inc()
+                        emit(MainUiState.Success(userListModels.toList()))
+                    }
+                    is Result.Failure -> {
+                        currentPage = null
+                        emit(MainUiState.Failure(result.throwable.message))
+                    }
                 }
-                result.onFailure {
-                    _onFailure.value = it.message
-                    currentPage = null
-                }
-            }.launchIn(viewModelScope)
-    }
-
-    private fun setLoading(show: Boolean) {
-        val model = UserListModel.Loading
-
-        val list = _userListModels.value
-            ?.toMutableList()
-            ?.apply {
-                if (show) add(model)
-                else remove(model)
             }
+            .flowOn(Dispatchers.IO)
+            .onEach(_state::emit)
+            .launchIn(viewModelScope)
+    }
 
-        _userListModels.value = list
+    private fun getUsers(keyword: String, page: Int?, per: Int?): Flow<Result<List<UserResponse>>> =
+        callbackFlow {
+            trySendBlocking(Result.Loading)
+
+            runCatching { api.getGithubUsers(keyword, page, per) }
+                .onSuccess {
+                    trySendBlocking(Result.Success(it.items))
+                }.onFailure {
+                    trySendBlocking(Result.Failure(it))
+                }
+
+            awaitClose()
+        }
+
+    private sealed class Result<out T> {
+
+        data class Success<T>(val value: T) : Result<T>()
+
+        data class Failure(val throwable: Throwable) : Result<Nothing>()
+
+        object Loading : Result<Nothing>()
     }
 }
