@@ -11,6 +11,7 @@ object BindingAdapter {
     fun setImageUrl(view: ImageView, url: String?) {
         Glide.with(view)
             .load(url)
+            .circleCrop()
             .into(view)
     }
 }
