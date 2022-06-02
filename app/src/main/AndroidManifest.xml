@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:name=".RememberApplication"
+        android:name=".ComposeApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -12,7 +12,7 @@
         android:theme="@style/Theme.Composeremember"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".ui.MainActivity"
+            android:name=".ui.UserListActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -13,9 +13,9 @@ import com.sample.extension.showToast
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity() {
+class UserListActivity : AppCompatActivity() {
 
-    private val viewModel: MainViewModel by viewModels()
+    private val viewModel: UserListViewModel by viewModels()
     private lateinit var binding: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,19 +30,16 @@ class MainActivity : AppCompatActivity() {
 
         binding.list.adapter = adapter
         binding.list.layoutManager = layoutManager
-        binding.list.onScrollBottom(2) { viewModel.fetch() }
+        binding.list.onScrollBottom { viewModel.fetch() }
 
         lifecycleScope.launchWhenStarted {
-            viewModel.state.collect {
-                when (it) {
-                    is MainUiState.Success -> {
-                        adapter.submitList(it.list)
-                    }
-                    is MainUiState.Failure -> {
-                        showToast(it.message)
-                    }
-                }
-            }
+            viewModel.userListModels
+                .collect(adapter::submitList)
+        }
+
+        lifecycleScope.launchWhenStarted {
+            viewModel.errorMessage
+                .collect(::showToast)
         }
     }
 }
