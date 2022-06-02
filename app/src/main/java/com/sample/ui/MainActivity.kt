@@ -32,7 +32,7 @@ class MainActivity : AppCompatActivity() {
         binding.list.layoutManager = layoutManager
         binding.list.onScrollBottom(2) { viewModel.fetch() }
 
-        lifecycleScope.launchWhenResumed {
+        lifecycleScope.launchWhenStarted {
             viewModel.state.collect {
                 when (it) {
                     is MainUiState.Success -> {
