@@ -2,13 +2,10 @@ package com.example.compose_remember.ui.user
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.compose_remember.data.usecase.GetUserUseCase
 import com.example.compose_remember.data.Result
+import com.example.compose_remember.data.usecase.GetUserUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,16 +21,19 @@ class UserListViewModel @Inject constructor(
     }
 
     private var currentPage: Int? = START_PAGE
-    private val userListModels = mutableListOf<UserListModel>()
 
-    private val _state: MutableSharedFlow<UserListUiState> = MutableSharedFlow()
-    val state: SharedFlow<UserListUiState> get() = _state
+    private val _userListModels: MutableStateFlow<List<UserListModel>> = MutableStateFlow(emptyList())
+    val userListModels: StateFlow<List<UserListModel>> get() = _userListModels
+
+    private val _errorMessage: MutableSharedFlow<String?> = MutableSharedFlow()
+    val errorMessage: SharedFlow<String?> get() = _errorMessage
 
     init {
         fetch()
     }
 
     fun fetch() {
+        val userListModels: MutableList<UserListModel> = _userListModels.value.toMutableList()
         if (userListModels.lastOrNull() == UserListModel.Loading || currentPage == null) return
 
         getUserUseCase(NAME, currentPage, PER_PAGE).onEach { result ->
@@ -42,7 +42,7 @@ class UserListViewModel @Inject constructor(
                     UserListModel.Loading
                         .let(userListModels::add)
 
-                    _state.emit(UserListUiState.Success(userListModels.toList()))
+                    _userListModels.emit(userListModels.toList())
                 }
                 is Result.Success -> {
                     UserListModel.Loading
@@ -53,23 +53,25 @@ class UserListViewModel @Inject constructor(
                         .let(userListModels::addAll)
 
                     currentPage = currentPage?.inc()
-                    _state.emit(UserListUiState.Success(userListModels.toList()))
+                    _userListModels.emit(userListModels.toList())
                 }
                 is Result.Failure -> {
                     currentPage = null
-                    _state.emit(UserListUiState.Failure(result.throwable.message))
+                    _errorMessage.emit(result.throwable.message)
                 }
             }
         }.launchIn(viewModelScope)
     }
 
     private fun onClickUser(name: String) {
+        val userListModels: MutableList<UserListModel> = _userListModels.value.toMutableList()
         val index = userListModels.filterIsInstance<UserListModel.User>()
             .indexOfFirst { it.name == name }
+
         userListModels.removeAt(index)
 
         viewModelScope.launch {
-            _state.emit(UserListUiState.Success(userListModels.toList()))
+            _userListModels.emit(userListModels.toList())
         }
     }
 }
