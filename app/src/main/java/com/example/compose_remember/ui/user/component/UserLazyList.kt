@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import com.example.compose_remember.extension.OnScrollBottom
 import com.example.compose_remember.ui.user.UserListModel
 
+/*
 @Composable
 fun UserLazyList(
     list: List<UserListModel>,
@@ -35,3 +36,4 @@ fun UserLazyList(
 
     listState.OnScrollBottom { loadMore() }
 }
+ */

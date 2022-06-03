@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import com.example.compose_remember.ui.user.UserListModel
 import com.google.accompanist.coil.rememberCoilPainter
 
+/*
 @Composable
 fun UserItem(
     user: UserListModel.User,
@@ -40,3 +41,4 @@ fun UserItem(
         )
     }
 }
+ */
